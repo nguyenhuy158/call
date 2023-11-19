@@ -31,18 +31,22 @@ app.get('/:room', (req, res) => {
 io.on('connection', (socket) => {
     // Room logic here
     socket.on('join-room', (roomId) => {
-        socket.join(roomId);
-        socket.to(roomId).emit('new-user', socket.id);
-
-        // Lưu thông tin người dùng vào phòng
         if (!rooms[roomId]) {
             rooms[roomId] = { members: [] };
         }
-        rooms[roomId].members.push(socket.id);
-        console.log(`🚀 ~ socket.on ~ rooms:`, rooms)
-
-        // Gửi thông tin thành viên trong phòng cho client
-        socket.emit('all-users', rooms[roomId].members);
+        if (rooms[roomId].members.length < 2) {
+            socket.join(roomId);
+            socket.to(roomId).emit('new-user', socket.id);
+    
+            rooms[roomId].members.push(socket.id);
+            console.log(`🚀 ~ socket.on ~ rooms:`, rooms);
+    
+            // Gửi thông tin thành viên trong phòng cho client
+            socket.emit('all-users', rooms[roomId].members);
+        } else {
+            // Redirect user to another page
+            socket.emit('room-full');
+        }
     });
 
     // Handle signaling logic here

@@ -154,6 +154,11 @@
         $(`#${userId}`).remove();
     });
 
+    socket.on('room-full', () => {
+        alert('room is full');
+        window.location.href = '/';
+    });
+
     const startCallButton = document.getElementById('startCallButton');
 
     (async () => {
