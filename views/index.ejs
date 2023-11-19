@@ -56,7 +56,7 @@
         const offer = data.offer;
         remoteUserId = data.target;
         console.log(`🚀 ~ socket.on ~ data:`, data);
-        console.log(`🚀 ~ socket.on ~ remoteUserId:`, remoteUserId)
+        console.log(`🚀 ~ socket.on ~ remoteUserId:`, remoteUserId);
 
         peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         peerConnection.createAnswer().then((answer) => {
@@ -76,7 +76,7 @@
     // Handle incoming ice candidate
     socket.on('ice-candidate', (candidate) => {
         console.log(`🚀 ~ remoteUserId:`, remoteUserId);
-        console.log(`🚀 ~ socket.on ~ candidate:`, candidate)
+        console.log(`🚀 ~ socket.on ~ candidate:`, candidate);
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
@@ -90,13 +90,17 @@
 
     // Listen for track event
     peerConnection.ontrack = function ({ streams: [stream] }) {
-        console.log(`🚀 ~ stream:`, stream)
+        console.log(`🚀 ~ stream:`, stream);
         // Set the source of the video element to the stream
         if (remoteVideo) {
             remoteVideo.srcObject = stream;
         }
     };
     // Assume you have a button with the id "startCallButton" in your HTML
+    socket.on('user-connected', (userId) => {
+        console.log(`🚀 new user:`, userId);
+    });
+
     const startCallButton = document.getElementById('startCallButton');
 
     (async () => {
@@ -114,7 +118,7 @@
     startCallButton.addEventListener('click', async () => {
         try {
             const offer = await peerConnection.createOffer();
-            console.log(`🚀 ~ startCallButton.addEventListener ~ offer:`, offer)
+            console.log(`🚀 ~ startCallButton.addEventListener ~ offer:`, offer);
 
             // Step 3: Set Local Description
             await peerConnection.setLocalDescription(offer);

@@ -3,7 +3,11 @@ const http = require('http');
 const socketIO = require('socket.io');
 
 const app = express();
-const server = http.createServer(app);
+const server = http.createServer(app, {
+    cors: {
+        origin: '*',
+    }
+});
 const io = socketIO(server);
 
 app.use(express.static(__dirname + '/public'));
@@ -17,9 +21,11 @@ io.on('connection', (socket) => {
     // Handle signaling logic here
     console.log('User connected');
     console.log(socket.id);
-    
+
+    socket.broadcast.emit('user-connected', socket.id);
+
     socket.on('offer', (data) => {
-        io.to(data.target).emit('offer', {target: socket.id, offer: data.offer});
+        io.to(data.target).emit('offer', { target: socket.id, offer: data.offer });
     });
 
     socket.on('answer', (data) => {
