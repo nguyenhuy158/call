@@ -35,7 +35,33 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io.connect();
-    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const configuration = {
+        iceServers: [
+            {
+                urls: "stun:stun.relay.metered.ca:80",
+            },
+            {
+                urls: "turn:a.relay.metered.ca:80",
+                username: "f53cdafbffcc24c341620211",
+                credential: "IsJ63Gjfyd9x25La",
+            },
+            {
+                urls: "turn:a.relay.metered.ca:80?transport=tcp",
+                username: "f53cdafbffcc24c341620211",
+                credential: "IsJ63Gjfyd9x25La",
+            },
+            {
+                urls: "turn:a.relay.metered.ca:443",
+                username: "f53cdafbffcc24c341620211",
+                credential: "IsJ63Gjfyd9x25La",
+            },
+            {
+                urls: "turn:a.relay.metered.ca:443?transport=tcp",
+                username: "f53cdafbffcc24c341620211",
+                credential: "IsJ63Gjfyd9x25La",
+            },
+        ],
+    };
     const peerConnection = new RTCPeerConnection(configuration);
     let remoteUserId;
 
