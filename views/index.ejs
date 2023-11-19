@@ -1,0 +1,130 @@
+<!-- Include necessary scripts like socket.io and adapter.js -->
+
+<!-- add script bootstrap 5 -->
+<script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"
+        integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.7/dist/umd/popper.min.js"
+        integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+        crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/js/bootstrap.min.js"
+        integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM"
+        crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css"
+      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<!-- add script jquery -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+
+
+
+
+
+<br>
+<div class="container justify-content-center d-flex align-items-center h-25 w-100">
+    <video id="localVideo" muted class="border rounded" width="300" height="150" autoplay></video>
+    <video id="remoteVideo" muted class="border rounded" width="300" height="150" autoplay></video>
+</div>
+<br>
+<div class="container justify-content-center d-flex align-items-center w-100">
+    <button id="startCallButton" class="btn btn-primary">Start Call</button>
+</div>
+
+
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    const socket = io.connect('http://localhost:3000');
+    const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+    const peerConnection = new RTCPeerConnection(configuration);
+    let remoteUserId;
+
+    // Handle ice candidate events
+    peerConnection.onicecandidate = (event) => {
+        console.log(`🚀 ~ remoteUserId:`, remoteUserId);
+        console.log(`🚀 ~ event:`, event);
+        if (event.candidate) {
+            socket.emit('ice-candidate', {
+                target: remoteUserId,
+                candidate: event.candidate,
+            });
+        }
+    };
+
+    // Handle incoming offer
+    socket.on('offer', (data) => {
+        const offer = data.offer;
+        remoteUserId = data.target;
+        console.log(`🚀 ~ socket.on ~ data:`, data);
+        console.log(`🚀 ~ socket.on ~ remoteUserId:`, remoteUserId)
+
+        peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+        peerConnection.createAnswer().then((answer) => {
+            console.log(`🚀 ~ peerConnection.createAnswer ~ answer:`, answer);
+            return peerConnection.setLocalDescription(answer);
+        }).then(() => {
+            socket.emit('answer', { target: remoteUserId, answer: peerConnection.localDescription });
+        });
+    });
+
+    // Handle incoming answer
+    socket.on('answer', (answer) => {
+        console.log(`🚀 ~ socket.on ~ answer:`, answer);
+        peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    // Handle incoming ice candidate
+    socket.on('ice-candidate', (candidate) => {
+        console.log(`🚀 ~ remoteUserId:`, remoteUserId);
+        console.log(`🚀 ~ socket.on ~ candidate:`, candidate)
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+
+    // Add your code to get user media, create offer, and start the call
+    socket.on('connect', () => {
+        console.log('connected');
+        console.log(socket.id);
+    });
+    // Get the remote video element
+    const remoteVideo = document.getElementById('remoteVideo');
+
+    // Listen for track event
+    peerConnection.ontrack = function ({ streams: [stream] }) {
+        console.log(`🚀 ~ stream:`, stream)
+        // Set the source of the video element to the stream
+        if (remoteVideo) {
+            remoteVideo.srcObject = stream;
+        }
+    };
+    // Assume you have a button with the id "startCallButton" in your HTML
+    const startCallButton = document.getElementById('startCallButton');
+
+    (async () => {
+        // Step 1: Get User Media
+        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+        // Display the local video stream on a video element (assume you have an element with id "localVideo")
+        const localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = mediaStream;
+
+        // Step 2: Create Offer
+        peerConnection.addStream(mediaStream); // Deprecated, consider using addTrack
+    })();
+
+    startCallButton.addEventListener('click', async () => {
+        try {
+            const offer = await peerConnection.createOffer();
+            console.log(`🚀 ~ startCallButton.addEventListener ~ offer:`, offer)
+
+            // Step 3: Set Local Description
+            await peerConnection.setLocalDescription(offer);
+
+            // Step 4: Send Offer to the Other Peer
+            remoteUserId = prompt("Enter socket id"); // Replace with the actual identifier of the remote user
+            socket.emit('offer', { target: remoteUserId, offer: offer });
+        } catch (error) {
+            console.error('Error starting the call:', error);
+        }
+    });
+
+</script>
