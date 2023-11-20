@@ -97,7 +97,7 @@
     let peerConnection = new RTCPeerConnection(configuration);
     let remoteUserId;
 
-    socket.on('offer', (data) => {
+    socket.on('offer', async (data) => {
         const offer = data.offer;
         remoteUserId = data.target;
 
@@ -139,17 +139,11 @@
     });
 
     (async () => {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-            audio: true,
-        });
-        const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = mediaStream;
-        peerConnection.addStream(mediaStream);
-        socket.emit('ready-call', roomId);
+        await preCall();
     })();
 
     async function preCall() {
+        peerConnection = null;
         peerConnection = new RTCPeerConnection(configuration);
         peerConnection.onicecandidate = (event) => {
             if (event.candidate) {
@@ -173,6 +167,10 @@
             localVideo.srcObject = localMediaStream;
         }
         peerConnection.addStream(localMediaStream);
+
+        if (!remoteUserId) {
+            socket.emit('ready-call', roomId);
+        }
     }
 
     socket.on('end-call', async () => {

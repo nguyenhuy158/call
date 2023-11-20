@@ -87,6 +87,7 @@ io.on('connection', (socket) => {
 
     socket.on('ready-call', (roomId) => {
         console.log('ready to call');
+        console.log(rooms)
         socket.to(roomId).emit('ready-call');
     });
 });
