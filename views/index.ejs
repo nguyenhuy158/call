@@ -44,7 +44,6 @@
     ></video>
     <video
         id="remoteVideo"
-        muted
         class="border rounded"
         width="300"
         height="150"
@@ -66,6 +65,7 @@
     const socket = io.connect();
     const roomId = '<%=roomId%>';
     socket.emit('join-room', roomId);
+
     const localVideo = document.getElementById('localVideo');
     const remoteVideo = document.getElementById('remoteVideo');
 
@@ -97,15 +97,6 @@
     let peerConnection = new RTCPeerConnection(configuration);
     let remoteUserId;
 
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            socket.emit('ice-candidate', {
-                target: remoteUserId,
-                candidate: event.candidate,
-            });
-        }
-    };
-
     socket.on('offer', (data) => {
         const offer = data.offer;
         remoteUserId = data.target;
@@ -132,41 +123,20 @@
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
-    socket.on('connect', () => {
-        console.log('connected');
-    });
-
     peerConnection.ontrack = function ({ streams: [stream] }) {
         if (remoteVideo) {
             remoteVideo.srcObject = stream;
         }
     };
 
-    setInterval(() => {
-        $(`#${socket.id}`).css('color', 'red');
-    }, 100);
-
     socket.on('new-user', (userId) => {
-        $('ul').append(`<li id="${userId}">${userId}</li>`);
         remoteUserId = userId;
-    });
-
-    socket.on('all-users', (users) => {
-        users.forEach((userId) => {
-            $('ul').append(`<li id="${userId}">${userId}</li>`);
-        });
-    });
-
-    socket.on('user-disconnected', (userId) => {
-        $(`#${userId}`).remove();
     });
 
     socket.on('room-full', () => {
         alert('room is full');
         window.location.href = '/';
     });
-
-    const startCallButton = document.getElementById('startCallButton');
 
     (async () => {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -179,62 +149,51 @@
         socket.emit('ready-call', roomId);
     })();
 
-    $('ul').on('click', 'li', async function () {
-        try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            remoteUserId = $(this).attr('id');
-            socket.emit('offer', { target: remoteUserId, offer: offer });
-        } catch (error) {
-            console.error('Error starting the call:', error);
+    async function preCall() {
+        peerConnection = new RTCPeerConnection(configuration);
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('ice-candidate', {
+                    target: remoteUserId,
+                    candidate: event.candidate,
+                });
+            }
+        };
+        peerConnection.ontrack = function ({ streams: [stream] }) {
+            if (remoteVideo) {
+                remoteVideo.srcObject = stream;
+            }
+        };
+        let localMediaStream = localVideo.srcObject;
+        if (!localMediaStream) {
+            localMediaStream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true,
+            });
+            localVideo.srcObject = localMediaStream;
         }
-    });
-
-    startCallButton.addEventListener('click', async () => {
-        try {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            remoteUserId = prompt('Enter socket id');
-            socket.emit('offer', { target: remoteUserId, offer: offer });
-        } catch (error) {
-            console.error('Error starting the call:', error);
-        }
-    });
-
-    $('#endCallButton').on('click', async () => {
-        try {
-            remoteVideo.srcObject = null;
-            peerConnection.close();
-            peerConnection = new RTCPeerConnection(configuration);
-            peerConnection.addStream(localVideo.srcObject);
-            peerConnection.ontrack = function ({ streams: [stream] }) {
-                if (remoteVideo) {
-                    remoteVideo.srcObject = stream;
-                }
-            };
-            socket.emit('end-call', remoteUserId);
-        } catch (error) {
-            console.error('Error ending the call:', error);
-        }
-    });
+        peerConnection.addStream(localMediaStream);
+    }
 
     socket.on('end-call', async () => {
         try {
             remoteVideo.srcObject = null;
             peerConnection.close();
-            peerConnection = new RTCPeerConnection(configuration);
-            peerConnection.addStream(localVideo.srcObject);
-            peerConnection.ontrack = function ({ streams: [stream] }) {
-                if (remoteVideo) {
-                    remoteVideo.srcObject = stream;
-                }
-            };
+            await preCall();
         } catch (error) {
             console.error('Error ending the call:', error);
         }
     });
 
-    socket.on('ready-call', () => {
-        $(`#${remoteUserId}`).trigger('click');
+    socket.on('ready-call', async () => {
+        try {
+            await preCall();
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            socket.emit('offer', { target: remoteUserId, offer: offer });
+        } catch (error) {
+            console.error('Error starting the call:', error);
+        }
     });
 </script>
