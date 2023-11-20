@@ -38,10 +38,10 @@ io.on('connection', (socket) => {
         if (rooms[roomId].members.length < 2) {
             socket.join(roomId);
             socket.to(roomId).emit('new-user', socket.id);
-    
+
             rooms[roomId].members.push(socket.id);
             console.log(`🚀 ~ socket.on ~ rooms:`, rooms);
-    
+
             // Gửi thông tin thành viên trong phòng cho client
             socket.emit('all-users', rooms[roomId].members);
         } else {
@@ -65,6 +65,7 @@ io.on('connection', (socket) => {
         if (roomId) {
             rooms[roomId].members.splice(rooms[roomId].members.indexOf(socket.id), 1);
             socket.broadcast.to(roomId).emit('user-disconnected', socket.id);
+            socket.broadcast.to(roomId).emit('end-call');
         }
     });
 
@@ -82,6 +83,11 @@ io.on('connection', (socket) => {
 
     socket.on('end-call', (remoteUserId) => {
         io.to(remoteUserId).emit('end-call');
+    });
+
+    socket.on('ready-call', (roomId) => {
+        console.log('ready to call');
+        socket.to(roomId).emit('ready-call');
     });
 });
 
