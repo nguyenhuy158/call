@@ -5,6 +5,7 @@ const socketIO = require('socket.io');
 const users = [];
 const rooms = {};
 const app = express();
+app.disable("x-powered-by");
 const server = http.createServer(app, {
     cors: {
         origin: '*',
