@@ -94,7 +94,7 @@
             },
         ],
     };
-    let peerConnection = new RTCPeerConnection(configuration);
+    let peerConnection;
     let remoteUserId;
 
     socket.on('offer', async (data) => {
@@ -123,12 +123,6 @@
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
-    peerConnection.ontrack = function ({ streams: [stream] }) {
-        if (remoteVideo) {
-            remoteVideo.srcObject = stream;
-        }
-    };
-
     socket.on('new-user', (userId) => {
         remoteUserId = userId;
     });
@@ -143,6 +137,7 @@
     })();
 
     async function preCall() {
+        console.log(`preCall`);
         peerConnection = null;
         peerConnection = new RTCPeerConnection(configuration);
         peerConnection.onicecandidate = (event) => {
@@ -185,8 +180,6 @@
 
     socket.on('ready-call', async () => {
         try {
-            await preCall();
-
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
             socket.emit('offer', { target: remoteUserId, offer: offer });
