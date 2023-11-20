@@ -29,7 +29,7 @@
 <h1 class="text-center"><%=roomId%></h1>
 <br />
 <!-- add class boostrap for ul -->
-<ul class="list-group text-center"></ul>
+<ul class="list-group text-center d-none"></ul>
 <br />
 <div
     class="container justify-content-center d-flex align-items-center h-25 w-100"
@@ -52,15 +52,18 @@
     ></video>
 </div>
 <br />
-<div class="container justify-content-center d-flex align-items-center w-100">
-    <button id="startCallButton" class="btn btn-primary">Start Call</button>
-    <button id="endCallButton" class="btn btn-danger">End Call</button>
+<div class="d-none">
+    <div
+        class="container justify-content-center d-flex align-items-center w-100"
+    >
+        <button id="startCallButton" class="btn btn-primary">Start Call</button>
+        <button id="endCallButton" class="btn btn-danger">End Call</button>
+    </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
     const socket = io.connect();
-    // Room handle logic
     const roomId = '<%=roomId%>';
     socket.emit('join-room', roomId);
     const localVideo = document.getElementById('localVideo');
@@ -68,9 +71,7 @@
 
     const configuration = {
         iceServers: [
-            {
-                urls: 'stun:stun.relay.metered.ca:80',
-            },
+            { urls: 'stun:stun.relay.metered.ca:80' },
             {
                 urls: 'turn:a.relay.metered.ca:80',
                 username: 'f53cdafbffcc24c341620211',
@@ -96,10 +97,7 @@
     let peerConnection = new RTCPeerConnection(configuration);
     let remoteUserId;
 
-    // Handle ice candidate events
     peerConnection.onicecandidate = (event) => {
-        console.log(`🚀 ~ remoteUserId:`, remoteUserId);
-        console.log(`🚀 ~ event:`, event);
         if (event.candidate) {
             socket.emit('ice-candidate', {
                 target: remoteUserId,
@@ -108,21 +106,14 @@
         }
     };
 
-    // Handle incoming offer
     socket.on('offer', (data) => {
         const offer = data.offer;
         remoteUserId = data.target;
-        console.log(`🚀 ~ socket.on ~ data:`, data);
-        console.log(`🚀 ~ socket.on ~ remoteUserId:`, remoteUserId);
 
         peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
         peerConnection
             .createAnswer()
             .then((answer) => {
-                console.log(
-                    `🚀 ~ peerConnection.createAnswer ~ answer:`,
-                    answer,
-                );
                 return peerConnection.setLocalDescription(answer);
             })
             .then(() => {
@@ -133,57 +124,40 @@
             });
     });
 
-    // Handle incoming answer
     socket.on('answer', (answer) => {
-        console.log(`🚀 ~ socket.on ~ answer:`, answer);
         peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
     });
 
-    // Handle incoming ice candidate
     socket.on('ice-candidate', (candidate) => {
-        console.log(`🚀 ~ remoteUserId:`, remoteUserId);
-        console.log(`🚀 ~ socket.on ~ candidate:`, candidate);
         peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     });
 
-    // Add your code to get user media, create offer, and start the call
     socket.on('connect', () => {
         console.log('connected');
-        console.log(socket.id);
     });
 
-    // Listen for track event
     peerConnection.ontrack = function ({ streams: [stream] }) {
-        console.log(`🚀 ~ stream:`, stream);
-        // Set the source of the video element to the stream
         if (remoteVideo) {
             remoteVideo.srcObject = stream;
         }
     };
-    // Assume you have a button with the id "startCallButton" in your HTML
+
     setInterval(() => {
         $(`#${socket.id}`).css('color', 'red');
     }, 100);
 
     socket.on('new-user', (userId) => {
-        console.log(`🚀 ~ socket.on ~ new-user:`, userId);
         $('ul').append(`<li id="${userId}">${userId}</li>`);
-        // setTimeout(() => {
-        //     $(`#${userId}`).trigger('click');
-        // }, 1000);
         remoteUserId = userId;
     });
 
     socket.on('all-users', (users) => {
-        console.log(`🚀 ~ socket.on ~ all-users:`, users);
-
         users.forEach((userId) => {
             $('ul').append(`<li id="${userId}">${userId}</li>`);
         });
     });
 
     socket.on('user-disconnected', (userId) => {
-        console.log(`🚀 ~ socket.on ~ user-disconnected:`);
         $(`#${userId}`).remove();
     });
 
@@ -195,34 +169,20 @@
     const startCallButton = document.getElementById('startCallButton');
 
     (async () => {
-        // Step 1: Get User Media
         const mediaStream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: true,
         });
-
-        // Display the local video stream on a video element (assume you have an element with id "localVideo")
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = mediaStream;
-
-        // Step 2: Create Offer
-        peerConnection.addStream(mediaStream); // Deprecated, consider using addTrack
-
+        peerConnection.addStream(mediaStream);
         socket.emit('ready-call', roomId);
     })();
 
-    // how to write jquery handle click butotn startcallbutton or all li in ul list also handle async function below
     $('ul').on('click', 'li', async function () {
-        console.log('li click');
         try {
             const offer = await peerConnection.createOffer();
-            console.log(
-                `🚀 ~ startCallButton.addEventListener ~ offer:`,
-                offer,
-            );
-
             await peerConnection.setLocalDescription(offer);
-
             remoteUserId = $(this).attr('id');
             socket.emit('offer', { target: remoteUserId, offer: offer });
         } catch (error) {
@@ -233,91 +193,48 @@
     startCallButton.addEventListener('click', async () => {
         try {
             const offer = await peerConnection.createOffer();
-            console.log(
-                `🚀 ~ startCallButton.addEventListener ~ offer:`,
-                offer,
-            );
-
-            // Step 3: Set Local Description
             await peerConnection.setLocalDescription(offer);
-
-            // Step 4: Send Offer to the Other Peer
-            remoteUserId = prompt('Enter socket id'); // Replace with the actual identifier of the remote user
+            remoteUserId = prompt('Enter socket id');
             socket.emit('offer', { target: remoteUserId, offer: offer });
         } catch (error) {
             console.error('Error starting the call:', error);
         }
     });
 
-    // Handle end call button using jquery
     $('#endCallButton').on('click', async () => {
         try {
-            // Step 1: Close local stream by stopping all tracks
-            // const localStream = localVideo.srcObject;
-            // localStream.getTracks().forEach((track) => track.stop());
-            // localVideo.srcObject = null;
-
-            // Step 2: Close remote stream by stopping all tracks
-            // const remoteStream = remoteVideo.srcObject;
-            // remoteStream.getTracks().forEach((track) => track.stop());
             remoteVideo.srcObject = null;
-
-            // // Step 3: Close peer connection
             peerConnection.close();
-            // peerConnection = null;
             peerConnection = new RTCPeerConnection(configuration);
-
             peerConnection.addStream(localVideo.srcObject);
             peerConnection.ontrack = function ({ streams: [stream] }) {
-                console.log(`🚀 ~ stream:`, stream);
-                // Set the source of the video element to the stream
                 if (remoteVideo) {
                     remoteVideo.srcObject = stream;
                 }
             };
             socket.emit('end-call', remoteUserId);
-
-            // window.location.reload();
-            // window.location = '/';
         } catch (error) {
             console.error('Error ending the call:', error);
         }
     });
-    // Handle end call from remote user
+
     socket.on('end-call', async () => {
         try {
-            // Step 1: Close local stream by stopping all tracks
-            // const localStream = localVideo.srcObject;
-            // localStream.getTracks().forEach((track) => track.stop());
-            // localVideo.srcObject = null;
-
-            // Step 2: Close remote stream by stopping all tracks
-            // const remoteStream = remoteVideo.srcObject;
-            // remoteStream.getTracks().forEach((track) => track.stop());
             remoteVideo.srcObject = null;
-
-            // Step 3: Close peer connection
             peerConnection.close();
-            // peerConnection = null;
             peerConnection = new RTCPeerConnection(configuration);
-
             peerConnection.addStream(localVideo.srcObject);
             peerConnection.ontrack = function ({ streams: [stream] }) {
-                console.log(`🚀 ~ stream:`, stream);
-                // Set the source of the video element to the stream
                 if (remoteVideo) {
                     remoteVideo.srcObject = stream;
                 }
             };
-            // window.location = '/';
         } catch (error) {
             console.error('Error ending the call:', error);
         }
     });
 
     socket.on('ready-call', () => {
-        console.log(`🚀ready-call`);
-        console.log(`🚀 remoteUserId`, remoteUserId);
         $(`#${remoteUserId}`).trigger('click');
     });
 </script>
